@@ -468,6 +468,24 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::SYSTEM, "UI background animation").Choices(backgroundAnimationNames),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Transparent UI background"),
+	ConfigSetting("PS5Home", SETTING(g_Config, bPS5Home), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "PS5-style home screen"),
+	ConfigSetting("PS5TileScale", SETTING(g_Config, iPS5TileScale), 100, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Tile size").Range(60, 150),
+	ConfigSetting("PS5FocusScale", SETTING(g_Config, iPS5FocusScale), 112, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Selected tile zoom").Range(100, 150),
+	ConfigSetting("PS5AnimSpeed", SETTING(g_Config, iPS5AnimSpeed), 100, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Animation speed").Range(25, 300),
+	ConfigSetting("PS5HeroDim", SETTING(g_Config, iPS5HeroDim), 45, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Artwork dimming").Range(0, 90),
+	ConfigSetting("PS5Glow", SETTING(g_Config, bPS5Glow), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Glow on selected tile"),
+	ConfigSetting("PS5ShowClock", SETTING(g_Config, bPS5ShowClock), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Show clock"),
+	ConfigSetting("PS5ShowHints", SETTING(g_Config, bPS5ShowHints), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Show button hints"),
+	ConfigSetting("PS5ShowDescription", SETTING(g_Config, bPS5ShowDescription), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Show game description"),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Color tint").Range(0.0f, 1.0f, 0.01f),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT)

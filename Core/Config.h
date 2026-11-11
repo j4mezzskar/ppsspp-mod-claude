@@ -471,6 +471,17 @@ public:
 	float fGameListScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
+
+	// PS5-style home screen and its look (see UI/PS5Home.inc and the Customize settings tab).
+	bool bPS5Home;
+	int iPS5TileScale;  // percent
+	int iPS5FocusScale;  // percent
+	int iPS5AnimSpeed;  // percent
+	int iPS5HeroDim;  // percent
+	bool bPS5Glow;
+	bool bPS5ShowClock;
+	bool bPS5ShowHints;
+	bool bPS5ShowDescription;
 	int iSettingsCurrentTab;
 
 	std::string sThemeName;
