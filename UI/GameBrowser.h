@@ -33,6 +33,8 @@ enum class BrowseFlags {
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
 
+class GameButton;
+
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
@@ -64,6 +66,17 @@ protected:
 
 	void Refresh();
 	GameBrowserViewMode ViewMode() const;
+
+public:
+	// Lays the games out as one horizontal row of big tiles (the PS5-style home screen).
+	void SetCarousel(bool carousel) {
+		carousel_ = carousel;
+	}
+	// Selects the remembered tile, or the first game, and tells the home screen about it.
+	// Returns false if there's no game to select.
+	bool EnsureCarouselSelection();
+
+protected:
 
 	Path homePath_;
 
@@ -113,6 +126,9 @@ private:
 	ScreenManager *screenManager_;
 	int token_ = -1;
 	bool portrait_ = false;
+	bool carousel_ = false;
+	Path carouselSelected_;
+	void SelectCarouselButton(GameButton *button);
 	Path aliasMatch_;
 	std::string aliasDisplay_;
 };

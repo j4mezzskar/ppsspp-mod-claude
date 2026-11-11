@@ -62,6 +62,8 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/SavedataScreen.h"
 #include "UI/MiscViews.h"
+#include "Common/UI/Root.h"
+#include "UI/CustomArt.h"
 
 // This is in an objective-C file.
 #if PPSSPP_PLATFORM(IOS)
@@ -117,6 +119,7 @@ private:
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu | TwoPaneFlags::DropShadowTitle), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
+	UI::PlayUISound(UI::UISound::PANEL_OPEN);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
 	// We want to re-fetch savedata size when opening this screen. We re-fetch PARAM_SFO because it's connected to updating the hasConfig bool.
@@ -127,6 +130,7 @@ GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogS
 }
 
 GameScreen::~GameScreen() {
+	UI::PlayUISound(UI::UISound::PANEL_CLOSE);
 	if (CRC32string == "...") {
 		Reporting::CancelCRC();
 	}
@@ -633,6 +637,47 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		choices->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
+	}
+
+	// Your own thumbnail, artwork and description for this game, shown on the home screen.
+	if (!inGame_) {
+		const std::string artKey = CustomArt::KeyFor(gamePath_);
+		auto refreshArt = [this]() {
+			g_gameInfoCache->Clear();
+			RecreateViews();
+		};
+		choices->Add(new Choice(ga->T("Custom thumbnail"), ImageID("I_FOLDER_OPEN")))->OnClick.Add([this, artKey, refreshArt](UI::EventParams &) {
+			System_BrowseForFile(GetRequesterToken(), "Choose a thumbnail", BrowseFileType::IMAGE, [artKey, refreshArt](std::string_view value, int) {
+				const std::string err = CustomArt::ImportImage(artKey, "icon", std::string(value));
+				if (err.empty()) {
+					refreshArt();
+				} else {
+					g_OSD.Show(OSDType::MESSAGE_ERROR, err);
+				}
+			});
+		});
+		choices->Add(new Choice(ga->T("Custom artwork"), ImageID("I_DISPLAY")))->OnClick.Add([this, artKey, refreshArt](UI::EventParams &) {
+			System_BrowseForFile(GetRequesterToken(), "Choose artwork", BrowseFileType::IMAGE, [artKey, refreshArt](std::string_view value, int) {
+				const std::string err = CustomArt::ImportImage(artKey, "hero", std::string(value));
+				if (err.empty()) {
+					refreshArt();
+				} else {
+					g_OSD.Show(OSDType::MESSAGE_ERROR, err);
+				}
+			});
+		});
+		choices->Add(new Choice(ga->T("Custom description"), ImageID("I_EDIT_TEXT")))->OnClick.Add([this, artKey, refreshArt](UI::EventParams &) {
+			System_InputBoxGetString(GetRequesterToken(), "Description", CustomArt::ReadDescription(artKey), false, [artKey, refreshArt](std::string_view value, int) {
+				CustomArt::SaveDescription(artKey, std::string(value));
+				refreshArt();
+			});
+		});
+		if (CustomArt::HasIcon(artKey) || CustomArt::HasHero(artKey) || !CustomArt::ReadDescription(artKey).empty()) {
+			choices->Add(new Choice(ga->T("Reset custom look"), ImageID("I_TRASHCAN")))->OnClick.Add([artKey, refreshArt](UI::EventParams &) {
+				CustomArt::ResetAll(artKey);
+				refreshArt();
+			});
+		}
 	}
 
 	const bool packing = GamePacker::IsPacking(gamePath_);

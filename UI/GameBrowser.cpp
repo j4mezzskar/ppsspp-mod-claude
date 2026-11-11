@@ -203,6 +203,9 @@ void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFoc
 }
 
 GameBrowserViewMode GameBrowser::ViewMode() const {
+	if (carousel_) {
+		return GameBrowserViewMode::GRID;
+	}
 	// Anything else is the list, including 2 (the old large list).
 	return *viewMode_ == (int)GameBrowserViewMode::GRID ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST;
 }
@@ -531,7 +534,17 @@ void GameBrowser::Refresh() {
 	gridSettingsChoice->SetRoundCorners(RoundCorners::All);
 	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
-	if (gridStyle) {
+	if (carousel_) {
+		// The carousel has its own look, so the list and grid controls don't apply.
+		layoutChoice->SetVisibility(V_GONE);
+		gridSettingsChoice->SetVisibility(V_GONE);
+	}
+
+	if (carousel_) {
+		UI::LinearLayout *row = new UI::LinearLayoutList(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		row->SetSpacing(0.0f);
+		gameList_ = row;
+	} else if (gridStyle) {
 		// Measure sets the cell size.
 		gameGrid_ = new UI::GridLayoutList(UI::GridLayoutSettings(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
 		gameList_ = gameGrid_;
@@ -672,6 +685,20 @@ void GameBrowser::Refresh() {
 		pinButton->SetImageID(ImageID(IsCurrentPathPinned() ? "I_UNPIN" : "I_PIN"));
 	}
 
+	if (carousel_) {
+		// Selected tiles zoom in, so leave room for that between the tiles.
+		const float tileW = 144.0f * 1.35f * (g_Config.iPS5TileScale / 100.0f);
+		const float gap = 8.0f + tileW * std::max(0.0f, g_Config.iPS5FocusScale / 100.0f - 1.0f) * 0.5f;
+		for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+			UI::View *v = gameList_->GetViewByIndex(i);
+			v->ReplaceLayoutParams(new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Margins(gap, 22.0f, gap, 4.0f)));
+			if (GameButton *gb = dynamic_cast<GameButton *>(v)) {
+				gb->SetCarousel(true);
+				gb->SetSelected(!carouselSelected_.empty() && gb->GetPath() == carouselSelected_);
+			}
+		}
+	}
+
 	if (path_.GetPath().empty()) {
 		Add(new TextView(mm->T("UseBrowseOrLoad", "Use Browse to choose a folder, or Load to choose a file.")));
 	}
@@ -728,9 +755,64 @@ std::vector<Path> GameBrowser::GetPinnedPaths() const {
 	return results;
 }
 
+void GameBrowser::SelectCarouselButton(GameButton *button) {
+	if (!carouselSelected_.empty() && carouselSelected_ != button->GetPath()) {
+		// Let the home screen fade out the previous game's artwork first.
+		UI::EventParams lost{};
+		lost.s = carouselSelected_.ToString();
+		lost.a = (u32)(UI::FocusFlags::LOST_FOCUS | UI::FocusFlags::CAUSE_FOCUS_MOVE);
+		OnHighlight.Trigger(lost);
+	}
+	carouselSelected_ = button->GetPath();
+	for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+		if (GameButton *gb = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i))) {
+			gb->SetSelected(gb == button);
+		}
+	}
+	UI::EventParams got{};
+	got.v = button;
+	got.s = carouselSelected_.ToString();
+	got.a = (u32)UI::FocusFlags::GOT_FOCUS;
+	OnHighlight.Trigger(got);
+}
+
+bool GameBrowser::EnsureCarouselSelection() {
+	if (!carousel_ || !gameList_) {
+		return false;
+	}
+	GameButton *target = nullptr;
+	GameButton *first = nullptr;
+	for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+		GameButton *gb = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i));
+		if (!gb || !gb->IsHoldEnabled()) {
+			continue;
+		}
+		if (!first) {
+			first = gb;
+		}
+		if (!carouselSelected_.empty() && gb->GetPath() == carouselSelected_) {
+			target = gb;
+		}
+	}
+	if (!target) {
+		target = first;
+	}
+	if (!target) {
+		return false;
+	}
+	SelectCarouselButton(target);
+	return true;
+}
+
 void GameBrowser::GameButtonClick(UI::EventParams &e) {
 	GameButton *button = dynamic_cast<GameButton *>(e.v);
 	if (!button) {
+		return;
+	}
+	if (carousel_ && button->IsHoldEnabled() && !button->HasFocus() && carouselSelected_ != button->GetPath()) {
+		// First tap only selects the tile. Tapping the selected tile again plays it.
+		SelectCarouselButton(button);
+		UI::PlayUISound(UI::UISound::SELECT);
 		return;
 	}
 	UI::EventParams e2{};
@@ -749,6 +831,15 @@ void GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
 }
 
 void GameBrowser::GameButtonHighlight(UI::EventParams &e) {
+	if (carousel_ && ((UI::FocusFlags)e.a & UI::FocusFlags::GOT_FOCUS)) {
+		// Keyboard or gamepad focus counts as the selection too.
+		carouselSelected_ = Path(e.s);
+		for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+			if (GameButton *gb = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i))) {
+				gb->SetSelected(gb->GetPath() == carouselSelected_);
+			}
+		}
+	}
 	OnHighlight.Trigger(e);
 }
 

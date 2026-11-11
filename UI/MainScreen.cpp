@@ -59,6 +59,7 @@
 
 #include "Core/HLE/sceUmd.h"
 #include "Core/Util/PSARUnpack.h"
+#include "UI/PS5Home.inc"
 
 bool MainScreen::showHomebrewTab = false;
 
@@ -235,11 +236,17 @@ void MainScreen::CreateRecentTab() {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	const bool ps5 = g_Config.bPS5Home;
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, ps5 ? FILL_PARENT : WRAP_CONTENT));
 	tabContainer->SetSpacing(0.0f);
 	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 0))));
+	if (ps5) {
+		// Hidden until you type to search. The space above the tiles is for the artwork.
+		search->SetVisibility(V_GONE);
+		tabContainer->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	}
 
-	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ps5 ? ORIENT_HORIZONTAL : ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, ps5 ? 0.0f : 1.0f)));
 	scrollView->SetTag("MainScreenRecentGames");
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
@@ -248,6 +255,10 @@ void MainScreen::CreateRecentTab() {
 		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabRecentGames->SetSearchBar(search);
+	if (ps5) {
+		tabRecentGames->SetCarousel(true);
+		tabRecentGames->RequestRefresh();
+	}
 
 	scrollView->Add(tabRecentGames);
 	gameBrowsers_.push_back(tabRecentGames);
@@ -264,11 +275,16 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	const bool ps5 = g_Config.bPS5Home;
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, ps5 ? FILL_PARENT : WRAP_CONTENT));
 	tabContainer->SetSpacing(0.0f);
 	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	if (ps5) {
+		search->SetVisibility(V_GONE);
+		tabContainer->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	}
 
-	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ps5 ? ORIENT_HORIZONTAL : ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, ps5 ? 0.0f : 1.0f)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
 	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, viewMode, screenManager(),
@@ -276,12 +292,16 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	gameBrowser->SetSearchBar(search);
+	if (ps5) {
+		gameBrowser->SetCarousel(true);
+		gameBrowser->RequestRefresh();
+	}
 
 	scrollView->Add(gameBrowser);
 	gameBrowsers_.push_back(gameBrowser);
 
 	tabHolder_->AddTab(mm->T(title), ImageID::invalid(), tabContainer);
-	if (scrollPos) {
+	if (scrollPos && !ps5) {
 		scrollView->RememberPosition(scrollPos);
 	}
 
@@ -531,7 +551,28 @@ void MainScreen::CreateViews() {
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
 	}
 
-	if (vertical) {
+	if (g_Config.bPS5Home) {
+		// Same layout in portrait and landscape: the artwork, clock, title and hints are drawn by the
+		// overlay behind, and the real controls sit on top. Menu buttons top right, categories under
+		// them, and the game tiles along the bottom.
+		ps5LastTab_ = -1;
+		AnchorLayout *stack = new AnchorLayout(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+		stack->Add(new ps5home::HeroOverlay(&highlightedGamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
+
+		LinearLayout *column = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
+		column->SetSpacing(0.0f);
+		LinearLayout *topRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(16, 8, 16, 0)));
+		topRow->Add(new Spacer(new LinearLayoutParams(1.0f)));
+		CreateMainButtons(topRow, true);
+		column->Add(topRow);
+
+		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+		column->Add(leftColumn);
+		column->Add(new Spacer(g_Config.bPS5ShowHints ? 44.0f : 8.0f));
+
+		stack->Add(column);
+		root_->Add(stack);
+	} else if (vertical) {
 		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 0, 16)));
 		header->SetSpacing(4.0f);
 		header->Add(new LogoView(true, new LinearLayoutParams(1.0f)));
@@ -714,6 +755,22 @@ void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
 
+	if (g_Config.bPS5Home && tabHolder_ && createdMainTabs_ && !gameBrowsers_.empty()) {
+		// Keep a game selected, so the artwork and title always show. A new tab starts fresh.
+		const int tab = tabHolder_->GetCurrentTab();
+		const bool tabChanged = tab != ps5LastTab_;
+		if ((tabChanged || highlightedGamePath_.empty()) && tab >= 0 && tab < (int)gameBrowsers_.size()) {
+			if (tabChanged && !highlightedGamePath_.empty()) {
+				UI::EventParams lost{};
+				lost.s = highlightedGamePath_.ToString();
+				lost.a = (u32)(UI::FocusFlags::LOST_FOCUS | UI::FocusFlags::CAUSE_FOCUS_MOVE);
+				OnGameHighlight(lost);
+			}
+			gameBrowsers_[tab]->EnsureCarouselSelection();
+			ps5LastTab_ = tab;
+		}
+	}
+
 	if (packGeneration_ != GamePacker::Generation()) {
 		// A pack finished: a new file, and maybe the original gone.
 		packGeneration_ = GamePacker::Generation();
@@ -852,12 +909,14 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 }
 
 void MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
+	UI::PlayUISound(UI::UISound::LAUNCH_GAME);
 	ScreenManager *screen = screenManager();
 	LaunchFile(screen, nullptr, Path(e.s));
 }
 
 void MainScreen::OnGameSettings(UI::EventParams &e) {
 	// Not passing a game ID, changing the global settings.
+	UI::PlayUISound(UI::UISound::SETTINGS_OPEN);
 	screenManager()->push(new GameSettingsScreen(Path()));
 }
 

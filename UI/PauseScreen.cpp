@@ -74,6 +74,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
 #include "UI/AdhocServerScreen.h"
+#include "Common/UI/Root.h"
 
 // This is in an objective-C file.
 #if PPSSPP_PLATFORM(IOS)
@@ -168,6 +169,7 @@ void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+		UI::PlayUISound(UI::UISound::SAVE_STATE);
 		TriggerFinish(DR_OK); //OK will close the pause screen as well
 	}
 }
@@ -363,6 +365,7 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 	if (!NetworkWarnUserIfOnlineAndCantSavestate()) {
 		g_Config.iCurrentStateSlot = slot_;
 		SaveState::SaveSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+		UI::PlayUISound(UI::UISound::SAVE_STATE);
 		UI::EventParams e2{};
 		e2.v = this;
 		OnStateSaved.Trigger(e2);
@@ -426,6 +429,7 @@ GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	// So we can tell if something blew up while on the pause screen.
 	std::string assertStr = "PauseScreen: " + filename.GetFilename();
 	SetExtraAssertInfo(assertStr.c_str());
+	UI::PlayUISound(UI::UISound::PAUSE_OPEN);
 	saveStatePrefix_ = SaveState::GetGamePrefix(g_paramSFO);
 	SaveState::Rescan(saveStatePrefix_);
 	g_controlMapper.AddListener(this);
@@ -433,6 +437,7 @@ GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 }
 
 GamePauseScreen::~GamePauseScreen() {
+	UI::PlayUISound(UI::UISound::PAUSE_CLOSE);
 	g_controlMapper.RemoveListener(this);
 	__DisplaySetWasPaused();
 }

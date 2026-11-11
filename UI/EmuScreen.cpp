@@ -1047,6 +1047,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 		if (down) {
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate() && !bootPending_) {
 				SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, &ShowMessageAfterSaveStateAction);
+				UI::PlayUISound(UI::UISound::SAVE_STATE);
 			}
 		}
 		break;

@@ -52,6 +52,15 @@ public:
 		: UI::Clickable(layoutParams), type_(type), viewMode_(viewMode), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
+
+	// Big tiles for the PS5-style home screen: the selected tile zooms in, glows and shows its title.
+	void SetCarousel(bool carousel) {
+		carousel_ = carousel;
+	}
+	// On touch there's no focus, so a tapped tile counts as selected until another one is.
+	void SetSelected(bool selected) {
+		selected_ = selected;
+	}
 	std::string DescribeText() const override;
 	std::string SearchAlias() const override {
 		// Without the extension, or searching for "iso" would match every ISO. Only three or more
@@ -249,6 +258,10 @@ private:
 	Instant videoStart_;
 
 	double holdStart_ = 0.0;
+	bool carousel_ = false;
+	bool selected_ = false;
+	float focusAnim_ = 0.0f;  // 0 = idle, 1 = fully selected. Eased toward the target each frame.
+	double lastDrawTime_ = 0.0;
 	bool holdEnabled_ = true;
 	bool showInfoPressed_ = false;
 	bool infoKeyPressed_ = false;

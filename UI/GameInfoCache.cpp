@@ -48,6 +48,7 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
+#include "UI/CustomArt.h"
 
 GameInfoCache *g_gameInfoCache;
 
@@ -1038,6 +1039,11 @@ handleELF:
 			const u64 gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
 			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->gameSizeUncompressed = gameSizeUncompressed;
+		}
+
+		// The user's own thumbnail and artwork (see UI/CustomArt.h) win over the game's.
+		if (flags_ & (GameInfoFlags::ICON | GameInfoFlags::PIC1)) {
+			CustomArt::ApplyOverrides(info_.get(), flags_);
 		}
 
 		// Time to update the flags.

@@ -100,11 +100,21 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 	}
 }
 
+// Carousel tiles are the grid icon size times this, and leave room below for the title.
+static constexpr float CAROUSEL_BASE_SCALE = 1.35f;
+static constexpr float CAROUSEL_TITLE_H = 34.0f;
+
 void GameButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	switch (viewMode_) {
 	case GameBrowserViewMode::GRID:
-		w = 144 * g_Config.fGameGridScale;
-		h = 80 * g_Config.fGameGridScale;
+		if (carousel_) {
+			const float s = CAROUSEL_BASE_SCALE * (g_Config.iPS5TileScale / 100.0f);
+			w = 144 * s;
+			h = 80 * s + (type_ == GameButtonType::Game ? CAROUSEL_TITLE_H : 0.0f);
+		} else {
+			w = 144 * g_Config.fGameGridScale;
+			h = 80 * g_Config.fGameGridScale;
+		}
 		break;
 	case GameBrowserViewMode::LIST:
 		w = 500;
@@ -198,6 +208,15 @@ void GameButton::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
+	if (carousel_) {
+		const double now = time_now_d();
+		const float dt = lastDrawTime_ > 0.0 ? (float)std::min(0.1, now - lastDrawTime_) : 0.016f;
+		lastDrawTime_ = now;
+		const float speed = 9.0f * std::max(0.1f, g_Config.iPS5AnimSpeed / 100.0f);
+		const float target = (rowFocused || selected_) ? 1.0f : 0.0f;
+		focusAnim_ += (target - focusAnim_) * std::min(1.0f, dt * speed);
+	}
+
 	if (viewMode_ != GameBrowserViewMode::GRID || !texture) {
 		Drawable bg = style.background;
 		dc.Draw()->Flush();
@@ -216,6 +235,11 @@ void GameButton::Draw(UIContext &dc) {
 	}
 	const float textX = ListTextX();
 
+	const float carouselTitleH = (carousel_ && type_ == GameButtonType::Game) ? CAROUSEL_TITLE_H : 0.0f;
+	if (carousel_) {
+		iconBounds.h -= carouselTitleH;
+	}
+
 	int iconYOffset = 0;
 	if (viewMode_ == GameBrowserViewMode::GRID && down_) {
 		iconYOffset = 4;
@@ -227,6 +251,7 @@ void GameButton::Draw(UIContext &dc) {
 	if (texture) {
 		float alpha = 1.0f;
 		float dropsize = 10;
+		float tileAlpha = 1.0f;
 
 		if (ginfo) {
 			float loadPhase = ease((time_now_d() - ginfo->icon.timeLoaded) * 2);
@@ -244,6 +269,17 @@ void GameButton::Draw(UIContext &dc) {
 			iconBounds.w = nw;
 		}
 
+		if (carousel_) {
+			const float zoom = 1.0f + (std::max(100, g_Config.iPS5FocusScale) / 100.0f - 1.0f) * focusAnim_;
+			const float cx = iconBounds.centerX();
+			const float cy = iconBounds.centerY();
+			iconBounds.w *= zoom;
+			iconBounds.h *= zoom;
+			iconBounds.x = cx - iconBounds.w * 0.5f;
+			iconBounds.y = cy - iconBounds.h * 0.5f;
+			tileAlpha = 0.70f + 0.30f * focusAnim_;
+		}
+
 		if (iconYOffset) {
 			// Button pressed, move the icon down a bit and reduce the shadow.
 			dropsize = 3;
@@ -251,7 +287,18 @@ void GameButton::Draw(UIContext &dc) {
 			overlayBounds.y += iconYOffset * 2;
 		}
 
-		if (HasFocus()) {
+		if (carousel_) {
+			dc.Draw()->Flush();
+			dc.RebindTexture();
+			const float glow = g_Config.bPS5Glow ? focusAnim_ : 0.0f;
+			if (glow > 0.01f) {
+				const float breathe = 0.6f + 0.15f * (float)sin(time_now_d() * 3.5);
+				dc.DrawRectDropShadow(iconBounds, 20.0f, breathe, ((uint32_t)(255.0f * glow) << 24) | 0x00FFFFFF);
+			} else {
+				dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, 0);
+			}
+			dc.Draw()->Flush();
+		} else if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
 			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
@@ -267,8 +314,27 @@ void GameButton::Draw(UIContext &dc) {
 
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, 0xFFFFFFFF);
+		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, ((uint32_t)(255.0f * tileAlpha) << 24) | 0x00FFFFFF);
 		dc.Draw()->Flush();
+
+		if (carousel_ && focusAnim_ > 0.02f) {
+			// White outline around the selected tile.
+			const uint32_t ring = ((uint32_t)(255.0f * focusAnim_) << 24) | 0x00FFFFFF;
+			const float t = 2.5f;
+			dc.RebindTexture();
+			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x - t, iconBounds.y - t, iconBounds.w + 2 * t, t));
+			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x - t, iconBounds.y2(), iconBounds.w + 2 * t, t));
+			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x - t, iconBounds.y, t, iconBounds.h));
+			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x2(), iconBounds.y, t, iconBounds.h));
+			dc.Draw()->Flush();
+		}
+
+		if (carousel_ && carouselTitleH > 0.0f && focusAnim_ > 0.02f) {
+			// The selected game's name, under its tile.
+			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
+			dc.DrawText(text, bounds_.centerX(), bounds_.y2() - carouselTitleH + 10.0f, ((uint32_t)(255.0f * focusAnim_) << 24) | 0x00FFFFFF, ALIGN_TOP | ALIGN_HCENTER);
+			dc.SetFontStyle(dc.GetTheme().uiFont);
+		}
 	}
 
 	if (viewMode_ == GameBrowserViewMode::GRID) {

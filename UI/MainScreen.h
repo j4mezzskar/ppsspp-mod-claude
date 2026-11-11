@@ -90,6 +90,7 @@ protected:
 	Path highlightedGamePath_;
 
 	bool backFromStore_ = false;
+	int ps5LastTab_ = -1;  // The PS5-style home screen re-selects a game when the tab changes.
 	bool lockBackgroundAudio_ = false;
 	int packGeneration_ = 0;  // GamePacker::Generation() the game lists were made at.
 	bool lastVertical_ = false;

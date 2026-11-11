@@ -707,6 +707,15 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	case UI::UISound::TOGGLE_OFF: filename = "sfx_toggle_off.wav"; break;
 	case UI::UISound::ACHIEVEMENT_UNLOCKED: filename = "sfx_achievement_unlocked.wav"; break;
 	case UI::UISound::LEADERBOARD_SUBMITTED: filename = "sfx_leaderbord_submitted.wav"; break;
+	case UI::UISound::TAB_SWITCH: filename = "sfx_tab_switch.wav"; break;
+	case UI::UISound::LAUNCH_GAME: filename = "sfx_launch_game.wav"; break;
+	case UI::UISound::PANEL_OPEN: filename = "sfx_panel_open.wav"; break;
+	case UI::UISound::PANEL_CLOSE: filename = "sfx_panel_close.wav"; break;
+	case UI::UISound::SETTINGS_OPEN: filename = "sfx_settings_open.wav"; break;
+	case UI::UISound::MODAL: filename = "sfx_modal.wav"; break;
+	case UI::UISound::PAUSE_OPEN: filename = "sfx_pause_open.wav"; break;
+	case UI::UISound::PAUSE_CLOSE: filename = "sfx_pause_close.wav"; break;
+	case UI::UISound::SAVE_STATE: filename = "sfx_save_state.wav"; break;
 	default:
 		return;
 	}
@@ -754,6 +763,15 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 	LoadDefaultSample(UI::UISound::CONFIRM);
 	LoadDefaultSample(UI::UISound::TOGGLE_ON);
 	LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+	LoadDefaultSample(UI::UISound::TAB_SWITCH);
+	LoadDefaultSample(UI::UISound::LAUNCH_GAME);
+	LoadDefaultSample(UI::UISound::PANEL_OPEN);
+	LoadDefaultSample(UI::UISound::PANEL_CLOSE);
+	LoadDefaultSample(UI::UISound::SETTINGS_OPEN);
+	LoadDefaultSample(UI::UISound::MODAL);
+	LoadDefaultSample(UI::UISound::PAUSE_OPEN);
+	LoadDefaultSample(UI::UISound::PAUSE_CLOSE);
+	LoadDefaultSample(UI::UISound::SAVE_STATE);
 
 	if (!g_Config.sAchievementsUnlockAudioFile.empty()) {
 		UpdateSample(UI::UISound::ACHIEVEMENT_UNLOCKED, Sample::Load(g_Config.sAchievementsUnlockAudioFile));

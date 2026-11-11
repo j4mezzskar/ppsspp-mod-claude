@@ -47,6 +47,7 @@
 #include "UI/MiscViews.h"
 #include "UI/Settings/MainSettingsPages.h"
 #include "UI/Theme.h"
+#include "UI/CustomizeSettingsPages.inc"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
@@ -134,6 +135,7 @@ static const PageDef pageDefs[] = {
 	{ "GameSettingsAudio", "Audio", "I_SPEAKER_MAX", "audio", I18NCat::AUDIO, &BuildAudioSettings },
 	{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
 	{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
+	{ "GameSettingsCustomize", "Customize", "I_GEAR_STAR", nullptr, I18NCat::MAINSETTINGS, &BuildCustomizeSettings, nullptr },
 	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings },
 	{ "GameSettingsVR", "VR", "I_VR", nullptr, I18NCat::VR, &BuildVRSettings},
 };
