@@ -364,13 +364,13 @@ bool ChoiceStrip::Key(const KeyInput &input) {
 		if (IsTabLeftKey(input)) {
 			if (selected_ > 0) {
 				SetSelection(selected_ - 1, true);
-				UI::PlayUISound(UI::UISound::TOGGLE_OFF);  // Maybe make specific sounds for this at some point?
+				UI::PlayUISound(UI::UISound::TAB_SWITCH);
 			}
 			return true;
 		} else if (IsTabRightKey(input)) {
 			if (selected_ < (int)choices_.size() - 1) {
 				SetSelection(selected_ + 1, true);
-				UI::PlayUISound(UI::UISound::TOGGLE_ON);
+				UI::PlayUISound(UI::UISound::TAB_SWITCH);
 			}
 			return true;
 		}

@@ -41,6 +41,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 
 PopupScreen::PopupScreen(std::string_view title, std::string_view button1, std::string_view button2)
 	: title_(title), button1_(button1), button2_(button2) {
+	UI::PlayUISound(UI::UISound::MODAL);
 	// Auto-assign images. A bit hack to have this here.
 	if (!button1.empty()) {
 		TextToImage(button1, &button1Image_);
