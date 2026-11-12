@@ -1,0 +1,66 @@
+name: Apply Customization Bundle
+
+# Unpacks ppsspp-final-bundle.zip (uploaded to the repo's main folder), copies its files into
+# place, commits them, and starts the iOS build. It only writes to the six folders listed below.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  apply:
+    name: Unpack bundle and start build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Unpack the bundle into place
+        run: |
+          set -e
+          ZIP=ppsspp-final-bundle.zip
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: $ZIP was not found in the repo's main folder. Upload it there first."
+            exit 1
+          fi
+          rm -rf /tmp/bundle
+          mkdir /tmp/bundle
+          unzip -q "$ZIP" -d /tmp/bundle
+          FIRST=$(find /tmp/bundle -type d -name 1_Common_UI | head -1)
+          if [ -z "$FIRST" ]; then
+            echo "ERROR: the zip doesn't contain the numbered folders (1_Common_UI and so on)."
+            exit 1
+          fi
+          B=$(dirname "$FIRST")
+          copy_dir() {
+            if [ ! -d "$B/$1" ]; then
+              echo "ERROR: folder $1 is missing from the zip."
+              exit 1
+            fi
+            mkdir -p "$2"
+            cp -v "$B/$1"/* "$2"/
+          }
+          copy_dir 1_Common_UI Common/UI
+          copy_dir 2_Core Core
+          copy_dir 3_UI UI
+          copy_dir 4_icon ios/assets.xcassets/AppIcon.appiconset
+          copy_dir 5_assets assets
+          copy_dir 6_assets_themes assets/themes
+          rm -f "$ZIP"
+
+      - name: Commit the changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Apply home screen, sounds, icon and customization bundle" || echo "Nothing to commit"
+          git push
+
+      - name: Start the iOS build
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run manual_generate_ipa.yml --ref "${{ github.ref_name }}"
