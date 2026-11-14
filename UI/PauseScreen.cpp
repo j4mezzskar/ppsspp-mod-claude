@@ -595,6 +595,29 @@ void GamePauseScreen::CreateViews() {
 	saveStateScroll->Add(saveDataScrollItems);
 
 	saveDataScrollItems->SetSpacing(5.0f);
+
+	// Quick settings: PPSSPP's own status readouts, switched on or off without leaving the pause menu.
+	{
+		static bool showFps = false;
+		static bool showSpeed = false;
+		static bool showBattery = false;
+		showFps = (g_Config.iShowStatusFlags & (int)ShowStatusFlags::FPS_COUNTER) != 0;
+		showSpeed = (g_Config.iShowStatusFlags & (int)ShowStatusFlags::SPEED_COUNTER) != 0;
+		showBattery = (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) != 0;
+		auto addStatusFlag = [&](bool *value, const char *label, ShowStatusFlags flag) {
+			CheckBox *box = saveDataScrollItems->Add(new CheckBox(value, label));
+			box->OnClick.Add([value, flag](UI::EventParams &) {
+				if (*value) {
+					g_Config.iShowStatusFlags |= (int)flag;
+				} else {
+					g_Config.iShowStatusFlags &= ~(int)flag;
+				}
+			});
+		};
+		addStatusFlag(&showFps, "Show FPS counter", ShowStatusFlags::FPS_COUNTER);
+		addStatusFlag(&showSpeed, "Show speed", ShowStatusFlags::SPEED_COUNTER);
+		addStatusFlag(&showBattery, "Show battery", ShowStatusFlags::BATTERY_PERCENT);
+	}
 	if (Achievements::IsActive()) {
 		// TODO: active subset?
 		saveDataScrollItems->Add(new GameAchievementSummaryView(0));

@@ -21,6 +21,65 @@ static uint32_t Alpha(float a, uint32_t rgb = 0x00FFFFFF) {
 	return ((uint32_t)(255.0f * std::clamp(a, 0.0f, 1.0f)) << 24) | (rgb & 0x00FFFFFF);
 }
 
+// How long the home screen takes to fade out before a game starts, at normal animation speed.
+constexpr double LAUNCH_SECONDS = 0.22;
+
+// Drawn on top of everything: fades the whole home screen to black while a game is starting.
+class LaunchFade : public UI::View {
+public:
+	LaunchFade(const double *launchStart, UI::LayoutParams *layoutParams)
+		: UI::View(layoutParams), launchStart_(launchStart) {}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 0.0f;
+		h = 0.0f;
+	}
+
+	void Draw(UIContext &dc) override {
+		if (*launchStart_ <= 0.0) {
+			return;
+		}
+		const float speed = std::max(0.1f, g_Config.iPS5AnimSpeed / 100.0f);
+		const float t = std::clamp((float)((time_now_d() - *launchStart_) * speed / LAUNCH_SECONDS), 0.0f, 1.0f);
+		dc.Draw()->Flush();
+		dc.RebindTexture();
+		dc.FillRect(UI::Drawable(Alpha(t, 0x00000000)), bounds_);
+	}
+
+private:
+	const double *launchStart_;
+};
+
+// Fades the home screen in from black the first time it appears after the app starts.
+class IntroFade : public UI::View {
+public:
+	IntroFade(const double *introStart, UI::LayoutParams *layoutParams)
+		: UI::View(layoutParams), introStart_(introStart) {}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		w = 0.0f;
+		h = 0.0f;
+	}
+
+	void Draw(UIContext &dc) override {
+		if (*introStart_ <= 0.0) {
+			return;
+		}
+		const float speed = std::max(0.1f, g_Config.iPS5AnimSpeed / 100.0f);
+		const float t = std::clamp((float)((time_now_d() - *introStart_) * speed / 0.45), 0.0f, 1.0f);
+		if (t >= 1.0f) {
+			return;
+		}
+		const float ease = 1.0f - t * t;
+		dc.Draw()->Flush();
+		dc.RebindTexture();
+		dc.FillRect(UI::Drawable(Alpha(ease, 0x00000000)), bounds_);
+	}
+
+private:
+	const double *introStart_;
+};
+
 class HeroOverlay : public UI::View {
 public:
 	HeroOverlay(const Path *highlighted, UI::LayoutParams *layoutParams)
@@ -106,7 +165,7 @@ public:
 			// Fade and slide in whenever the selected game changes.
 			const float p = std::clamp((float)((now - shownSince_) * 4.0 * speed), 0.0f, 1.0f);
 			const float ease = 1.0f - (1.0f - p) * (1.0f - p);
-			const float slide = (1.0f - ease) * 16.0f;
+			const float slide = g_Config.bPS5ReducedMotion ? 0.0f : (1.0f - ease) * 8.0f;
 
 			const float descH = desc.empty() ? 0.0f : 78.0f;
 			const float titleH = 96.0f;

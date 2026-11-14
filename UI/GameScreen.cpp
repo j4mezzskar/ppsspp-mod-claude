@@ -64,6 +64,7 @@
 #include "UI/MiscViews.h"
 #include "Common/UI/Root.h"
 #include "UI/CustomArt.h"
+#include "UI/Favorites.h"
 
 // This is in an objective-C file.
 #if PPSSPP_PLATFORM(IOS)
@@ -646,6 +647,11 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 			g_gameInfoCache->Clear();
 			RecreateViews();
 		};
+		const bool isFavorite = Favorites::Has(gamePath_);
+		choices->Add(new Choice(ga->T(isFavorite ? "Remove from favorites" : "Add to favorites"), ImageID("I_GEAR_STAR")))->OnClick.Add([this](UI::EventParams &) {
+			Favorites::Toggle(gamePath_);
+			RecreateViews();
+		});
 		choices->Add(new Choice(ga->T("Custom thumbnail"), ImageID("I_FOLDER_OPEN")))->OnClick.Add([this, artKey, refreshArt](UI::EventParams &) {
 			System_BrowseForFile(GetRequesterToken(), "Choose a thumbnail", BrowseFileType::IMAGE, [artKey, refreshArt](std::string_view value, int) {
 				const std::string err = CustomArt::ImportImage(artKey, "icon", std::string(value));

@@ -482,6 +482,8 @@ public:
 	bool bPS5ShowClock;
 	bool bPS5ShowHints;
 	bool bPS5ShowDescription;
+	bool bPS5ReducedMotion;
+	bool bPS5FavoritesFirst;
 	int iSettingsCurrentTab;
 
 	std::string sThemeName;

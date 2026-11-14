@@ -51,6 +51,7 @@
 #include "Core/Config.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/Util/DarwinFileSystemServices.h" // For the browser
+#include "UI/Favorites.h"
 
 // Folders get bigger lines too, though not as big as the games.
 static constexpr float LIST_FOLDER_H = 50.0f;
@@ -309,6 +310,10 @@ static bool IsUmdPath(const Path &path, bool isDirectory) {
 }
 
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
+	if (path_.GetPath().ToString() == "!FAVORITES") {
+		filenames = Favorites::Paths();
+		return true;
+	}
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_recentFiles.GetRecentFiles()) {
@@ -446,7 +451,7 @@ void GameBrowser::Refresh() {
 	Add(topBar);
 
 	// Recent isn't a real folder, so it gets no path or refresh.
-	const bool isRecent = path_.GetPath().ToString() == "!RECENT";
+	const bool isRecent = path_.GetPath().ToString() == "!RECENT" || path_.GetPath().ToString() == "!FAVORITES";
 
 	std::string pathStr = path_.GetPath().IsNetworkRoot() ? std::string(mm->T("Network")) : GetFriendlyPath(path_.GetPath(), aliasMatch_, aliasDisplay_);
 
@@ -648,6 +653,13 @@ void GameBrowser::Refresh() {
 		if (!focusPath_.empty() && dirButtons[i]->GetPath() == focusPath_ && dirButtons[i]->SetFocus(FocusFlags::CAUSE_RESTORE)) {
 			UI::ScrollFocusedViewIntoView();
 		}
+	}
+
+	if (carousel_ && g_Config.bPS5FavoritesFirst && path_.GetPath().ToString().substr(0, 1) != "!") {
+		// In folders, favorite games come first. (Recent keeps its own order.)
+		std::stable_partition(gameButtons.begin(), gameButtons.end(), [](GameButton *b) {
+			return Favorites::Has(b->GetPath());
+		});
 	}
 
 	for (size_t i = 0; i < gameButtons.size(); i++) {

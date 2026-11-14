@@ -60,6 +60,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/Util/PSARUnpack.h"
 #include "UI/PS5Home.inc"
+#include "UI/Favorites.h"
 
 bool MainScreen::showHomebrewTab = false;
 
@@ -241,8 +242,7 @@ void MainScreen::CreateRecentTab() {
 	tabContainer->SetSpacing(0.0f);
 	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 0))));
 	if (ps5) {
-		// Hidden until you type to search. The space above the tiles is for the artwork.
-		search->SetVisibility(V_GONE);
+		// The space between the search bar and the tiles is for the artwork.
 		tabContainer->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	}
 
@@ -269,6 +269,41 @@ void MainScreen::CreateRecentTab() {
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 }
 
+void MainScreen::CreateFavoritesTab() {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	const bool ps5 = g_Config.bPS5Home;
+	LinearLayout *tabContainer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, ps5 ? FILL_PARENT : WRAP_CONTENT));
+	tabContainer->SetSpacing(0.0f);
+	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 0))));
+	if (ps5) {
+		tabContainer->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	}
+
+	ScrollView *scrollView = tabContainer->Add(new ScrollView(ps5 ? ORIENT_HORIZONTAL : ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, ps5 ? 0.0f : 1.0f)));
+	scrollView->SetTag("MainScreenFavoriteGames");
+
+	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+
+	GameBrowser *tabFavoriteGames = new GameBrowser(GetRequesterToken(),
+		Path("!FAVORITES"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
+		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	tabFavoriteGames->SetSearchBar(search);
+	if (ps5) {
+		tabFavoriteGames->SetCarousel(true);
+		tabFavoriteGames->RequestRefresh();
+	}
+
+	scrollView->Add(tabFavoriteGames);
+	gameBrowsers_.push_back(tabFavoriteGames);
+
+	tabHolder_->AddTab(mm->T("Favorites"), ImageID::invalid(), tabContainer);
+	tabFavoriteGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabFavoriteGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabFavoriteGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
+}
+
 GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, int *viewMode, float *scrollPos) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
@@ -280,7 +315,6 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	tabContainer->SetSpacing(0.0f);
 	SearchBar *search = tabContainer->Add(new SearchBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	if (ps5) {
-		search->SetVisibility(V_GONE);
 		tabContainer->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	}
 
@@ -497,6 +531,11 @@ void MainScreen::CreateViews() {
 			remoteBrowser->SetHomePath(remotePath);
 		}
 
+		// Added last, so the other tabs keep their positions.
+		if (Favorites::Count() > 0) {
+			CreateFavoritesTab();
+		}
+
 		if (g_lastMainScreenTab >= 0 && g_lastMainScreenHadRecent == showRecent) {
 			tabHolder_->SetCurrentTab(g_lastMainScreenTab, true);
 		} else if (g_recentFiles.HasAny()) {
@@ -571,6 +610,15 @@ void MainScreen::CreateViews() {
 		column->Add(new Spacer(g_Config.bPS5ShowHints ? 44.0f : 8.0f));
 
 		stack->Add(column);
+		stack->Add(new ps5home::LaunchFade(&ps5LaunchStart_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
+
+		// The first time the home screen appears, fade it in from black.
+		static bool introShown = false;
+		if (!introShown && !g_Config.bPS5ReducedMotion) {
+			introShown = true;
+			ps5IntroStart_ = time_now_d();
+		}
+		stack->Add(new ps5home::IntroFade(&ps5IntroStart_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 		root_->Add(stack);
 	} else if (vertical) {
 		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 0, 16)));
@@ -755,6 +803,16 @@ void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
 
+	if (ps5LaunchStart_ > 0.0) {
+		const float speed = std::max(0.1f, g_Config.iPS5AnimSpeed / 100.0f);
+		if (time_now_d() - ps5LaunchStart_ >= ps5home::LAUNCH_SECONDS / speed) {
+			const Path path = ps5LaunchPath_;
+			ps5LaunchStart_ = 0.0;
+			ps5LaunchPath_.clear();
+			LaunchFile(screenManager(), nullptr, path);
+		}
+	}
+
 	if (g_Config.bPS5Home && tabHolder_ && createdMainTabs_ && !gameBrowsers_.empty()) {
 		// Keep a game selected, so the artwork and title always show. A new tab starts fresh.
 		const int tab = tabHolder_->GetCurrentTab();
@@ -909,7 +967,17 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 }
 
 void MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
+	if (ps5LaunchStart_ > 0.0) {
+		// Already starting a game, so ignore repeated taps.
+		return;
+	}
 	UI::PlayUISound(UI::UISound::LAUNCH_GAME);
+	if (g_Config.bPS5Home && !g_Config.bPS5ReducedMotion) {
+		// Fade the home screen out for a moment, then start the game (see update()).
+		ps5LaunchPath_ = Path(e.s);
+		ps5LaunchStart_ = time_now_d();
+		return;
+	}
 	ScreenManager *screen = screenManager();
 	LaunchFile(screen, nullptr, Path(e.s));
 }

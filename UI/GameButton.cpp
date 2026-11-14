@@ -30,6 +30,7 @@
 #include "UI/GameButton.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GamePacker.h"
+#include "UI/Favorites.h"
 
 
 // Where the text starts in the list.
@@ -214,7 +215,11 @@ void GameButton::Draw(UIContext &dc) {
 		lastDrawTime_ = now;
 		const float speed = 9.0f * std::max(0.1f, g_Config.iPS5AnimSpeed / 100.0f);
 		const float target = (rowFocused || selected_) ? 1.0f : 0.0f;
-		focusAnim_ += (target - focusAnim_) * std::min(1.0f, dt * speed);
+		if (g_Config.bPS5ReducedMotion) {
+			focusAnim_ = target;
+		} else {
+			focusAnim_ += (target - focusAnim_) * std::min(1.0f, dt * speed);
+		}
 	}
 
 	if (viewMode_ != GameBrowserViewMode::GRID || !texture) {
@@ -270,7 +275,7 @@ void GameButton::Draw(UIContext &dc) {
 		}
 
 		if (carousel_) {
-			const float zoom = 1.0f + (std::max(100, g_Config.iPS5FocusScale) / 100.0f - 1.0f) * focusAnim_;
+			const float zoom = 1.0f + (g_Config.bPS5ReducedMotion ? 0.0f : (std::max(100, g_Config.iPS5FocusScale) / 100.0f - 1.0f)) * focusAnim_;
 			const float cx = iconBounds.centerX();
 			const float cy = iconBounds.centerY();
 			iconBounds.w *= zoom;
@@ -292,7 +297,7 @@ void GameButton::Draw(UIContext &dc) {
 			dc.RebindTexture();
 			const float glow = g_Config.bPS5Glow ? focusAnim_ : 0.0f;
 			if (glow > 0.01f) {
-				const float breathe = 0.6f + 0.15f * (float)sin(time_now_d() * 3.5);
+				const float breathe = 0.6f + (g_Config.bPS5ReducedMotion ? 0.0f : 0.15f * (float)sin(time_now_d() * 3.5));
 				dc.DrawRectDropShadow(iconBounds, 20.0f, breathe, ((uint32_t)(255.0f * glow) << 24) | 0x00FFFFFF);
 			} else {
 				dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, 0);
@@ -327,6 +332,16 @@ void GameButton::Draw(UIContext &dc) {
 			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x - t, iconBounds.y, t, iconBounds.h));
 			dc.FillRect(UI::Drawable(ring), Bounds(iconBounds.x2(), iconBounds.y, t, iconBounds.h));
 			dc.Draw()->Flush();
+		}
+
+		if (carousel_ && type_ == GameButtonType::Game && Favorites::Has(gamePath_)) {
+			// A small gold tag on favorite games.
+			dc.RebindTexture();
+			const Bounds tag(iconBounds.x + 6.0f, iconBounds.y + 6.0f, 36.0f, 17.0f);
+			dc.FillRect(UI::Drawable(0xFF2FC4F2), tag);
+			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Tiny));
+			dc.DrawText("FAV", tag.centerX(), tag.centerY(), 0xFF101010, ALIGN_CENTER);
+			dc.SetFontStyle(dc.GetTheme().uiFont);
 		}
 
 		if (carousel_ && carouselTitleH > 0.0f && focusAnim_ > 0.02f) {

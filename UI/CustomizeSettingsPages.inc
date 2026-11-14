@@ -292,6 +292,7 @@ static void BuildColorsPage(SettingsPage *page) {
 static void BuildLayoutPage(SettingsPage *page) {
 	page->Header("Home screen");
 	page->Bool(&g_Config.bPS5Home, "PS5-style home screen").Hint("Turn off to go back to the classic list. Applies when you return to the home screen.");
+	page->Bool(&g_Config.bPS5FavoritesFirst, "Favorites first").Hint("In Games and Homebrew, your favorite games come first.").Enabled(&g_Config.bPS5Home);
 
 	page->Header("Tiles");
 	page->IntSlider(&g_Config.iPS5TileScale, 60, 150, "Tile size").Default(100).Step(5).Enabled(&g_Config.bPS5Home);
@@ -306,16 +307,16 @@ static void BuildLayoutPage(SettingsPage *page) {
 }
 
 static void BuildAnimationsPage(SettingsPage *page) {
+	page->Header("Reduced motion");
+	page->Bool(&g_Config.bPS5ReducedMotion, "Reduced motion").Hint("No zoom, no slide-in, a steady glow, and games start without the fade.").Enabled(&g_Config.bPS5Home);
+
 	page->Header("Selected tile");
-	page->IntSlider(&g_Config.iPS5FocusScale, 100, 150, "Selected tile zoom").Default(112).Step(2).Enabled(&g_Config.bPS5Home);
+	page->IntSlider(&g_Config.iPS5FocusScale, 100, 150, "Selected tile zoom").Default(108).Step(2).Enabled(&g_Config.bPS5Home);
 	page->Bool(&g_Config.bPS5Glow, "Glow on selected tile").Enabled(&g_Config.bPS5Home);
 
 	page->Header("Speed");
 	page->IntSlider(&g_Config.iPS5AnimSpeed, 25, 300, "Animation speed").Default(100).Step(25).Enabled(&g_Config.bPS5Home);
-	page->Description("Higher is faster. This controls how quickly tiles zoom and how quickly the title slides in.");
-
-	page->Header("Calmer motion");
-	page->Description("For the least movement, set the zoom to 100 and turn the glow off.");
+	page->Description("Higher is faster. This controls how quickly tiles zoom, the title slides in, and the home screen fades when a game starts.");
 
 	page->Header("Background");
 	page->Setting(&g_Config.iBackgroundAnimation);
@@ -332,6 +333,26 @@ static void BuildArtworkPage(SettingsPage *page) {
 
 	page->Header("Where they're stored");
 	page->Info("Folder", Persist((GetSysDirectory(DIRECTORY_SYSTEM) / "CUSTOM_ART").ToString()));
+}
+
+static void AddStatusFlag(SettingsPage *page, const char *label, ShowStatusFlags flag) {
+	page->Bool(label, [flag]() {
+		return (g_Config.iShowStatusFlags & (int)flag) != 0;
+	}, [flag](bool value) {
+		if (value) {
+			g_Config.iShowStatusFlags |= (int)flag;
+		} else {
+			g_Config.iShowStatusFlags &= ~(int)flag;
+		}
+	});
+}
+
+static void BuildPerformancePage(SettingsPage *page) {
+	page->Header("While playing");
+	AddStatusFlag(page, "Show FPS counter", ShowStatusFlags::FPS_COUNTER);
+	AddStatusFlag(page, "Show speed", ShowStatusFlags::SPEED_COUNTER);
+	AddStatusFlag(page, "Show battery", ShowStatusFlags::BATTERY_PERCENT);
+	page->Description("These are PPSSPP's own readouts, drawn over the game while it runs. You can also switch them from the pause menu.");
 }
 
 static void BuildSoundsPage(SettingsPage *page) {
@@ -354,7 +375,11 @@ static void BuildGuidePage(SettingsPage *page) {
 
 	page->Header("Using the home screen");
 	page->Description("Tap a game once to select it: the tile zooms, the artwork and title appear, and your description shows. Tap it again to play. Hold it for its page, where you can customize it.");
-	page->Description("With a gamepad or keyboard, move to a tile to select it and press confirm to play. L1 and R1 switch categories.");
+	page->Description("With a gamepad or keyboard, move to a tile to select it and press confirm to play. L1 and R1 switch categories. The search bar above the tiles filters the current list.");
+	page->Description("Prefer less movement? Turn on Reduced motion under Animations.");
+
+	page->Header("Favorites");
+	page->Description("Open a game's page and tap Add to favorites. Favorites get a gold FAV tag, come first in Games and Homebrew, and have their own Favorites tab (it appears once you have one).");
 
 	page->Header("Colors, explained");
 	page->Description("Background is the backdrop behind every screen. Tiles are the buttons and rows. Tile opacity controls how visible they are against the background; low values look glassy.");
@@ -382,5 +407,6 @@ static void BuildCustomizeSettings(SettingsPage *page) {
 	page->Link("Animations", I18NCat::MAINSETTINGS, &BuildAnimationsPage);
 	page->Link("Artwork", I18NCat::MAINSETTINGS, &BuildArtworkPage);
 	page->Link("Sounds", I18NCat::MAINSETTINGS, &BuildSoundsPage);
+	page->Link("Performance", I18NCat::MAINSETTINGS, &BuildPerformancePage);
 	page->Link("Guide", I18NCat::MAINSETTINGS, &BuildGuidePage);
 }

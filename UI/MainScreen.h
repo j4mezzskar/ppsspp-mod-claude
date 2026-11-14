@@ -59,6 +59,7 @@ protected:
 
 	void CreateViews() override;
 	void CreateRecentTab();
+	void CreateFavoritesTab();
 	GameBrowser *CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, int *viewMode, float *scrollPos);
 	void CreateMainButtons(UI::LinearLayout *parent, bool vertical);
 
@@ -90,6 +91,9 @@ protected:
 	Path highlightedGamePath_;
 
 	bool backFromStore_ = false;
+	Path ps5LaunchPath_;  // A game that is about to start, once the home screen has faded out.
+	double ps5LaunchStart_ = 0.0;
+	double ps5IntroStart_ = 0.0;
 	int ps5LastTab_ = -1;  // The PS5-style home screen re-selects a game when the tab changes.
 	bool lockBackgroundAudio_ = false;
 	int packGeneration_ = 0;  // GamePacker::Generation() the game lists were made at.

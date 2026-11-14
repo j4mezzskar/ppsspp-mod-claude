@@ -472,7 +472,7 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::SYSTEM, "PS5-style home screen"),
 	ConfigSetting("PS5TileScale", SETTING(g_Config, iPS5TileScale), 100, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Tile size").Range(60, 150),
-	ConfigSetting("PS5FocusScale", SETTING(g_Config, iPS5FocusScale), 112, CfgFlag::DEFAULT)
+	ConfigSetting("PS5FocusScale", SETTING(g_Config, iPS5FocusScale), 108, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Selected tile zoom").Range(100, 150),
 	ConfigSetting("PS5AnimSpeed", SETTING(g_Config, iPS5AnimSpeed), 100, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Animation speed").Range(25, 300),
@@ -486,6 +486,10 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::SYSTEM, "Show button hints"),
 	ConfigSetting("PS5ShowDescription", SETTING(g_Config, bPS5ShowDescription), true, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Show game description"),
+	ConfigSetting("PS5ReducedMotion", SETTING(g_Config, bPS5ReducedMotion), false, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Reduced motion"),
+	ConfigSetting("PS5FavoritesFirst", SETTING(g_Config, bPS5FavoritesFirst), true, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Favorites first"),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Color tint").Range(0.0f, 1.0f, 0.01f),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT)
